@@ -1,36 +1,51 @@
 export default async function handler(req, res) {
-  const userKey = req.query.key; 
+  // Injector se 'key' mangne ke liye
+  const { key } = req.query;
 
-  if (!userKey) {
-    return res.status(400).json({ status: false, message: "Please enter a key" });
+  if (!key) {
+    return res.status(200).json({ 
+      status: false, 
+      message: "Chave em falta" // (Key missing - LKL language)
+    });
   }
 
   try {
-    // Aapka Firebase URL
-    const dbUrl = `https://opx188-ff1a3-default-rtdb.firebaseio.com/keys/${userKey}.json`;
+    // Aapke Firebase ka link
+    const dbUrl = `https://opx188-ff1a3-default-rtdb.firebaseio.com/keys/${key}.json`;
     const response = await fetch(dbUrl);
-    const keyData = await response.json();
+    const data = await response.json();
 
-    if (keyData !== null && keyData.active === true) {
-      
-      const currentDate = new Date();
-      const expireDate = new Date(keyData.expires);
-
-      if (currentDate > expireDate) {
-         return res.status(401).json({ status: false, message: "Ye Key expire ho chuki he!" });
-      }
-
+    // Agar key database mein nahi hai
+    if (!data) {
       return res.status(200).json({ 
-        status: true, 
-        message: "Login Successful!",
-        expireDate: keyData.expires 
+        status: false, 
+        message: "Chave não encontrada" // (Key not found)
       });
-
-    } else {
-      return res.status(401).json({ status: false, message: "Key Galat hai!" });
     }
+
+    const now = new Date();
+    const expiry = new Date(data.expires);
+
+    // Agar key expire ho gayi hai
+    if (now > expiry) {
+      return res.status(200).json({ 
+        status: false, 
+        message: "Chave expirada" // (Key expired)
+      });
+    }
+
+    // SUCCESS: Login Successful
+    return res.status(200).json({
+      status: true,
+      auth: "success",
+      msg: "Login Sucesso",
+      user_key: key,
+      expiry: data.expires,
+      // Lib file ka link (Iska naam GitHub wali file se match hona chahiye)
+      download_url: "https://opx-188.vercel.app/libLKL.so" 
+    });
+
   } catch (error) {
-    return res.status(500).json({ status: false, message: "Server Error" });
+    return res.status(200).json({ status: false, message: "Erro de servidor" });
   }
 }
-
