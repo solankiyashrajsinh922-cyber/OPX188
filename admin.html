@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OPX188 VIP Admin</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 15px; background: #0f0f0f; color: #e0e0e0; margin: 0; }
+        .box { background: #1e1e1e; padding: 20px; border-radius: 12px; max-width: 600px; margin: auto; box-shadow: 0 8px 32px rgba(0,0,0,0.8); border: 1px solid #333; }
+        h2 { text-align: center; color: #4CAF50; margin-bottom: 20px; text-transform: uppercase; letter-spacing: 2px; }
+        
+        input, select { padding: 12px; margin-top: 10px; border-radius: 6px; border: 1px solid #444; width: 100%; box-sizing: border-box; font-size: 16px; background: #2a2a2a; color: #fff; outline: none; }
+        input:focus { border-color: #4CAF50; }
+        
+        button { background: linear-gradient(135deg, #4CAF50, #2e7d32); color: white; padding: 14px; border: none; cursor: pointer; width: 100%; margin-top: 15px; font-weight: bold; border-radius: 6px; font-size: 16px; transition: 0.3s; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 5px 15px rgba(76, 175, 80, 0.4); }
+        
+        .time-setup { display: flex; gap: 10px; margin-top: 10px; }
+        
+        .result-box { background: #111; padding: 15px; border-radius: 8px; margin-top: 25px; text-align: center; border: 1px dashed #4CAF50;}
+        #outputKey { background: transparent; color: #00ff00; font-weight: bold; font-family: 'Courier New', monospace; font-size: 22px; text-align: center; border: none; margin: 0; padding: 5px; }
+        
+        .list-header { display: flex; justify-content: space-between; align-items: center; margin-top: 30px; border-bottom: 2px solid #333; padding-bottom: 10px; }
+        .btn-refresh { background: #2196F3; width: auto; padding: 8px 15px; margin: 0; font-size: 12px; }
+
+        .table-container { overflow-x: auto; margin-top: 15px; background: #1a1a1a; border-radius: 8px; }
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th { background: #333; padding: 12px; color: #4CAF50; text-align: left; }
+        td { padding: 12px; border-bottom: 1px solid #222; }
+        .status-active { color: #00C851; font-weight: bold; }
+        .status-expired { color: #ff4444; font-weight: bold; }
+        
+        #loginPanel { margin-top: 100px; }
+    </style>
+</head>
+<body>
+
+<div id="loginPanel" class="box">
+    <h2>Admin Login</h2>
+    <input type="password" id="adminPass" placeholder="Enter Admin Password">
+    <button onclick="checkPassword()">UNLOCk PANEL</button>
+</div>
+
+<div id="adminPanel" style="display:none;" class="box">
+    <h2>OPX188 Master Panel</h2>
+    
+    <label style="font-size: 14px; color: #aaa;">Select Key Duration:</label>
+    <div class="time-setup">
+        <input type="number" id="timeValue" value="1">
+        <select id="timeUnit">
+            <option value="minutes">Minutes</option>
+            <option value="hours">Hours</option>
+            <option value="days" selected>Days</option>
+        </select>
+    </div>
+    
+    <button onclick="generateKey()">⚡ GENERATE VIP KEY</button>
+    
+    <div class="result-box">
+        <input type="text" id="outputKey" readonly value="READY TO GEN">
+        <div id="expiryOutput" style="color: #ffeb3b; font-size: 12px; margin-top: 5px;">Expiry will show here</div>
+    </div>
+
+    <div class="list-header">
+        <h3 style="margin:0; font-size: 16px;">Key Database</h3>
+        <button class="btn-refresh" onclick="loadKeys()">🔄 REFRESH</button>
+    </div>
+
+    <div class="table-container">
+        <table>
+            <thead>
+                <tr>
+                    <th>KEY</th>
+                    <th>DURATION</th>
+                    <th>EXPIRY</th>
+                    <th>STATUS</th>
+                </tr>
+            </thead>
+            <tbody id="keyListBody">
+                <tr><td colspan="4" style="text-align:center;">Loading Keys...</td></tr>
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<script>
+    const MY_PASSWORD = "96389875";
+    const DB_URL = "https://opx188-ff1a3-default-rtdb.firebaseio.com/keys";
+
+    function checkPassword() {
+        if (document.getElementById('adminPass').value === MY_PASSWORD) {
+            document.getElementById('loginPanel').style.display = 'none';
+            document.getElementById('adminPanel').style.display = 'block';
+            loadKeys();
+        } else {
+            alert("Wrong Password!");
+        }
+    }
+
+    async function generateKey() {
+        const btn = event.target;
+        btn.innerText = "GENERATING...";
+        btn.disabled = true;
+
+        const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+        const newKey = "OPX-" + randomStr;
+        const timeValue = parseInt(document.getElementById('timeValue').value);
+        const timeUnit = document.getElementById('timeUnit').value;
+
+        const expireDate = new Date();
+        if (timeUnit === 'minutes') expireDate.setMinutes(expireDate.getMinutes() + timeValue);
+        else if (timeUnit === 'hours') expireDate.setHours(expireDate.getHours() + timeValue);
+        else if (timeUnit === 'days') expireDate.setDate(expireDate.getDate() + timeValue);
+
+        const keyData = {
+            active: true,
+            expires: expireDate.toISOString(),
+            duration: timeValue + " " + timeUnit
+        };
+
+        try {
+            await fetch(`${DB_URL}/${newKey}.json`, {
+                method: 'PUT',
+                body: JSON.stringify(keyData)
+            });
+            
+            document.getElementById('outputKey').value = newKey;
+            document.getElementById('expiryOutput').innerText = "Expires: " + expireDate.toLocaleString();
+            
+            // List ko turant update karein
+            await loadKeys();
+        } catch (e) {
+            alert("Error saving to Firebase!");
+        } finally {
+            btn.innerText = "⚡ GENERATE VIP KEY";
+            btn.disabled = false;
+        }
+    }
+
+    async function loadKeys() {
+        const tbody = document.getElementById('keyListBody');
+        try {
+            const res = await fetch(`${DB_URL}.json`);
+            const data = await res.json();
+            
+            tbody.innerHTML = "";
+            if (!data) {
+                tbody.innerHTML = "<tr><td colspan='4' style='text-align:center;'>No Keys Found</td></tr>";
+                return;
+            }
+
+            const now = new Date();
+            // Nayi keys ko upar dikhane ke liye reverse sort (optional)
+            Object.keys(data).reverse().forEach(key => {
+                const item = data[key];
+                const exp = new Date(item.expires);
+                const isExpired = now > exp;
+                
+                tbody.innerHTML += `
+                    <tr>
+                        <td style="font-family:monospace; color:#4CAF50;">${key}</td>
+                        <td>${item.duration}</td>
+                        <td style="font-size:11px;">${exp.toLocaleString([], {month:'short', day:'numeric', hour:'2-digit', minute:'2-digit'})}</td>
+                        <td class="${isExpired ? 'status-expired' : 'status-active'}">${isExpired ? 'EXPIRED' : 'ACTIVE'}</td>
+                    </tr>
+                `;
+            });
+        } catch (e) {
+            tbody.innerHTML = "<tr><td colspan='4' style='text-align:center; color:red;'>Failed to load list</td></tr>";
+        }
+    }
+</script>
+</body>
+</html>
+
